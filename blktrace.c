@@ -460,6 +460,9 @@ bool read_blktrace(struct thread_data* td)
 
 	td->io_log_checkmark  = chunked_items / 2;
 
+	if (td->io_log_done)
+		return true;
+
 	do {
 		int ret = fread(&t, 1, sizeof(t), f);
 
@@ -527,9 +530,17 @@ bool read_blktrace(struct thread_data* td)
 			log_err("fio: <%s> skips replay of %llu writes due to"
 					" read-only\n", td->o.name, td->io_log_skipped_writes);
 		}
+
+		td->io_log_done = 1;
 	}
 
 	if (chunked) {
+		dprint(FD_BLKTRACE, "blktrace chunk %lu items\n",
+				td->io_log_current - chunked_begin);
+
+		if (td->io_log_done)
+			dprint(FD_BLKTRACE, "chunked blktrace read done");
+
 		td->o.td_ddir = TD_DDIR_RW;
 
 		if (rw_bs[DDIR_READ] > td->o.max_bs[DDIR_READ] ||
@@ -539,9 +550,6 @@ bool read_blktrace(struct thread_data* td)
 			free_io_mem(td);
 			init_io_u_buffers(td);
 		}
-
-		dprint(FD_BLKTRACE, "blktrace chunk %lu items\n",
-				td->io_log_current - chunked_begin);
 		return true;
 	}
 
